@@ -12,12 +12,13 @@ import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../../utils/Firebase";
 import { userDataContext } from "../context/UserContext";
 import Loading from "../component/Loading";
+import { toast } from "react-toastify";
 
 function Login() {
   let [show, setShow] = useState(false);
   let [email, setEmail] = useState("");
   let [password, setPassword] = useState("");
-  let { serverUrl } = useContext(authDataContext);
+  let { serverUrl, saveToken } = useContext(authDataContext);
   let { getCurrentUser } = useContext(userDataContext);
   let [loading, setLoading] = useState(false);
 
@@ -28,7 +29,7 @@ function Login() {
     e.preventDefault();
     try {
       let result = await axios.post(
-        serverUrl + "/api/auth/login",
+        "/api/auth/login",
         {
           email,
           password,
@@ -37,6 +38,12 @@ function Login() {
       );
       console.log(result.data);
       setLoading(false);
+
+      // Extract token if available in the response
+      if (result.data && result.data.token) {
+        saveToken(result.data.token);
+      }
+
       getCurrentUser();
       navigate("/");
       toast.success("User Login Successful");
@@ -53,15 +60,39 @@ function Login() {
       let email = user.email;
 
       const result = await axios.post(
-        serverUrl + "/api/auth/googlelogin",
+        "/api/auth/googlelogin",
         { name, email },
         { withCredentials: true },
       );
-      console.log(result.data);
+      console.log("Google login response:", result.data);
+      console.log("Google login headers:", result.headers);
+
+      // Check for token in response body
+      if (result.data && result.data.token) {
+        console.log("Token found in response body");
+        saveToken(result.data.token);
+      }
+      // If not in response body, try to extract from cookies (manual approach)
+      else {
+        console.log("No token in response body, checking cookies manually");
+        const cookies = document.cookie.split(";");
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.startsWith("token=")) {
+            const token = cookie.substring("token=".length, cookie.length);
+            console.log("Token found in cookies:", token);
+            saveToken(token);
+            break;
+          }
+        }
+      }
+
       getCurrentUser();
       navigate("/");
+      toast.success("Login successful!");
     } catch (error) {
-      console.log(error);
+      console.log("Google login error:", error);
+      toast.error("Login failed");
     }
   };
   return (

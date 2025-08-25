@@ -17,6 +17,7 @@ import { ToastContainer } from "react-toastify";
 import NotFound from "./pages/NotFound";
 import Ai from "./component/Ai";
 import TestAuth from "./component/TestAuth";
+import AuthDebug from "./component/AuthDebug";
 function App() {
   let { userData } = useContext(userDataContext);
   let location = useLocation();
@@ -145,6 +146,7 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Ai />
+      <AuthDebug />
     </>
   );
 }
