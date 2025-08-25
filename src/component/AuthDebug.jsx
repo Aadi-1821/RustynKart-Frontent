@@ -1,36 +1,41 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { authDataContext } from '../context/authContext';
-import axios from 'axios';
-import { toast } from 'react-toastify';
+import React, { useContext, useEffect, useState } from "react";
+import { authDataContext } from "../context/AuthContext";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 function AuthDebug() {
-  const { serverUrl, getToken, saveToken, clearToken } = useContext(authDataContext);
-  const [tokenValue, setTokenValue] = useState('');
-  const [cookieValue, setCookieValue] = useState('');
-  const [customToken, setCustomToken] = useState('');
+  const { serverUrl, getToken, saveToken, clearToken } =
+    useContext(authDataContext);
+  const [tokenValue, setTokenValue] = useState("");
+  const [cookieValue, setCookieValue] = useState("");
+  const [customToken, setCustomToken] = useState("");
   const [testResult, setTestResult] = useState({});
   const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     // Get token from localStorage
-    const token = localStorage.getItem('authToken');
-    setTokenValue(token || 'No token found in localStorage');
+    const token = localStorage.getItem("authToken");
+    setTokenValue(token || "No token found in localStorage");
 
     // Parse cookies
-    const cookies = document.cookie.split(';').map(cookie => cookie.trim());
-    const tokenCookie = cookies.find(cookie => cookie.startsWith('token='));
-    setCookieValue(tokenCookie ? tokenCookie.substring(6) : 'No token cookie found');
+    const cookies = document.cookie.split(";").map((cookie) => cookie.trim());
+    const tokenCookie = cookies.find((cookie) => cookie.startsWith("token="));
+    setCookieValue(
+      tokenCookie ? tokenCookie.substring(6) : "No token cookie found",
+    );
   }, []);
 
   const refreshValues = () => {
-    const token = localStorage.getItem('authToken');
-    setTokenValue(token || 'No token found in localStorage');
+    const token = localStorage.getItem("authToken");
+    setTokenValue(token || "No token found in localStorage");
 
-    const cookies = document.cookie.split(';').map(cookie => cookie.trim());
-    const tokenCookie = cookies.find(cookie => cookie.startsWith('token='));
-    setCookieValue(tokenCookie ? tokenCookie.substring(6) : 'No token cookie found');
+    const cookies = document.cookie.split(";").map((cookie) => cookie.trim());
+    const tokenCookie = cookies.find((cookie) => cookie.startsWith("token="));
+    setCookieValue(
+      tokenCookie ? tokenCookie.substring(6) : "No token cookie found",
+    );
 
-    toast.info('Values refreshed');
+    toast.info("Values refreshed");
   };
 
   const testAuth = async () => {
@@ -39,41 +44,41 @@ function AuthDebug() {
       const config = {
         withCredentials: true,
         headers: {
-          'Authorization': `Bearer ${getToken() || ''}`
-        }
+          Authorization: `Bearer ${getToken() || ""}`,
+        },
       };
 
-      const result = await axios.get('/api/user/getcurrentuser', config);
+      const result = await axios.get("/api/user/getcurrentuser", config);
       setTestResult({
         success: true,
         data: result.data,
-        message: 'Authentication successful with token'
+        message: "Authentication successful with token",
       });
-      toast.success('Auth test passed!');
+      toast.success("Auth test passed!");
     } catch (error) {
-      console.error('Auth test failed:', error);
+      console.error("Auth test failed:", error);
       setTestResult({
         success: false,
         error: error.message,
         status: error.response?.status,
         data: error.response?.data,
-        message: 'Authentication failed'
+        message: "Authentication failed",
       });
-      toast.error('Auth test failed');
+      toast.error("Auth test failed");
     }
   };
 
   const saveCustomToken = () => {
     if (customToken) {
       saveToken(customToken);
-      toast.success('Custom token saved');
+      toast.success("Custom token saved");
       refreshValues();
     }
   };
 
   const clearStoredToken = () => {
     clearToken();
-    toast.info('Token cleared');
+    toast.info("Token cleared");
     refreshValues();
   };
 
@@ -83,7 +88,7 @@ function AuthDebug() {
         className="bg-purple-600 text-white px-4 py-2 rounded-lg shadow-lg"
         onClick={() => setShowDebug(!showDebug)}
       >
-        {showDebug ? 'Hide Debug' : 'Auth Debug'}
+        {showDebug ? "Hide Debug" : "Auth Debug"}
       </button>
 
       {showDebug && (
@@ -93,14 +98,14 @@ function AuthDebug() {
           <div className="mb-4">
             <div className="font-semibold mb-1">Token in localStorage:</div>
             <div className="bg-gray-700 p-2 rounded overflow-auto text-xs max-h-[60px]">
-              {tokenValue || 'none'}
+              {tokenValue || "none"}
             </div>
           </div>
 
           <div className="mb-4">
             <div className="font-semibold mb-1">Token in cookies:</div>
             <div className="bg-gray-700 p-2 rounded overflow-auto text-xs max-h-[60px]">
-              {cookieValue || 'none'}
+              {cookieValue || "none"}
             </div>
           </div>
 
@@ -128,7 +133,9 @@ function AuthDebug() {
           </div>
 
           <div className="mb-4">
-            <label className="block font-semibold mb-1">Set Custom Token:</label>
+            <label className="block font-semibold mb-1">
+              Set Custom Token:
+            </label>
             <div className="flex space-x-2">
               <input
                 type="text"
@@ -149,7 +156,9 @@ function AuthDebug() {
           {Object.keys(testResult).length > 0 && (
             <div className="mt-4">
               <div className="font-semibold mb-1">Test Result:</div>
-              <div className={`bg-gray-700 p-2 rounded overflow-auto text-xs max-h-[100px] ${testResult.success ? 'text-green-400' : 'text-red-400'}`}>
+              <div
+                className={`bg-gray-700 p-2 rounded overflow-auto text-xs max-h-[100px] ${testResult.success ? "text-green-400" : "text-red-400"}`}
+              >
                 <pre>{JSON.stringify(testResult, null, 2)}</pre>
               </div>
             </div>
