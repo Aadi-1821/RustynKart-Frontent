@@ -1,11 +1,11 @@
 import React, { useContext, useState } from "react";
-import { authDataContext } from "../context/AuthContext";
+import { authDataContext } from "../auth/AuthProvider";
 import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const TestAuth = () => {
-  const { serverUrl, testCookie } = useContext(authDataContext);
+  const { testAuth, getToken } = useContext(authDataContext);
   const [cookieTestResult, setCookieTestResult] = useState(null);
   const [authStatus, setAuthStatus] = useState(null);
   const [loginResponse, setLoginResponse] = useState(null);
@@ -13,15 +13,15 @@ const TestAuth = () => {
   // Test cookie functionality
   const handleTestCookie = async () => {
     try {
-      const result = await testCookie();
+      const result = await testAuth();
       setCookieTestResult(result);
-      toast.success("Cookie test completed", {
+      toast.success("Authentication test completed", {
         position: "top-right",
         autoClose: 3000,
       });
     } catch (error) {
-      console.error("Cookie test error:", error);
-      toast.error("Cookie test failed", {
+      console.error("Authentication test error:", error);
+      toast.error("Authentication test failed", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -31,14 +31,10 @@ const TestAuth = () => {
   // Test manual login
   const handleManualLogin = async () => {
     try {
-      const response = await axios.post(
-        `${serverUrl}/api/auth/login`,
-        {
-          email: "test@example.com",
-          password: "password123",
-        },
-        { withCredentials: true },
-      );
+      const response = await axios.post("/api/auth/login", {
+        email: "test@example.com",
+        password: "password123",
+      });
       setLoginResponse(response.data);
       toast.success("Login attempt completed", {
         position: "top-right",
@@ -59,8 +55,10 @@ const TestAuth = () => {
   // Check authentication status
   const checkAuthStatus = async () => {
     try {
-      const response = await axios.get(`${serverUrl}/test-auth`, {
-        withCredentials: true,
+      const response = await axios.get("/api/test-auth", {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
       });
       setAuthStatus(response.data);
     } catch (error) {
@@ -81,13 +79,13 @@ const TestAuth = () => {
           {/* Test Cookie Section */}
           <div className="p-4 border rounded-lg bg-gray-50">
             <h2 className="text-xl font-semibold mb-4">
-              Test Cookie Functionality
+              Test Authentication Functionality
             </h2>
             <button
               className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
               onClick={handleTestCookie}
             >
-              Test Cookies
+              Test Authentication
             </button>
 
             {cookieTestResult && (

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { authDataContext } from "./AuthContext.jsx";
+import { authDataContext } from "../auth/AuthProvider";
 import axios from "axios";
 import { userDataContext } from "./UserContext";
 import { toast } from "react-toastify";
@@ -10,7 +10,7 @@ function ShopContext({ children }) {
   let [search, setSearch] = useState("");
   let { userData } = useContext(userDataContext);
   let [showSearch, setShowSearch] = useState(false);
-  let { serverUrl, getToken } = useContext(authDataContext);
+  let { getToken } = useContext(authDataContext);
   let [cartItem, setCartItem] = useState({});
   let [loading, setLoading] = useState(false);
   let currency = "₹";
@@ -20,9 +20,11 @@ function ShopContext({ children }) {
     try {
       let result = await axios.get("/api/product/list");
       console.log(result.data);
-      setProducts(result.data);
+      setProducts(result.data || []);
     } catch (error) {
-      console.log(error);
+      console.log("Error fetching products:", error);
+      toast.error("Failed to load products");
+      setProducts([]);
     }
   };
 
@@ -53,16 +55,14 @@ function ShopContext({ children }) {
         // Get token from context
         const token = getToken();
 
-        let config = {
-          withCredentials: true,
-          headers: {},
+        // Configure request with authorization
+        const config = {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         };
 
-        // Add Authorization header if token exists
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-          console.log("Adding auth token to cart add request");
-        }
+        console.log("Adding auth token to cart add request");
 
         let result = await axios.post(
           "/api/cart/add",
@@ -82,25 +82,38 @@ function ShopContext({ children }) {
 
   const getUserCart = async () => {
     try {
+      // Don't try to get cart if no user data
+      if (!userData) {
+        console.log("No user logged in, skipping cart fetch");
+        return;
+      }
+
       // Get token from context
       const token = getToken();
 
-      let config = {
-        withCredentials: true,
-        headers: {},
-      };
-
-      // Add Authorization header if token exists
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-        console.log("Adding auth token to get cart request");
+      if (!token) {
+        console.log("No token available for cart request");
+        return;
       }
 
-      const result = await axios.post("/api/cart/get", {}, config);
+      console.log("Adding auth token to get cart request");
 
-      setCartItem(result.data);
+      const result = await axios.get("/api/cart/get", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (result.data) {
+        console.log("Cart data received:", result.data);
+        setCartItem(result.data);
+      } else {
+        console.log("Empty cart data received");
+        setCartItem({});
+      }
     } catch (error) {
       console.log("Error getting cart:", error);
+      setCartItem({}); // Reset cart on error
     }
   };
   const updateQuantity = async (itemId, size, quantity) => {
@@ -113,16 +126,19 @@ function ShopContext({ children }) {
         // Get token from context
         const token = getToken();
 
-        let config = {
-          withCredentials: true,
-          headers: {},
+        if (!token) {
+          console.log("No token available for update request");
+          return;
+        }
+
+        // Configure request with authorization
+        const config = {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         };
 
-        // Add Authorization header if token exists
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-          console.log("Adding auth token to update cart request");
-        }
+        console.log("Adding auth token to update cart request");
 
         await axios.post(
           "/api/cart/update",
@@ -136,13 +152,21 @@ function ShopContext({ children }) {
   };
   const getCartCount = () => {
     let totalCount = 0;
+    if (!cartItem || Object.keys(cartItem).length === 0) {
+      return 0;
+    }
+
     for (const items in cartItem) {
-      for (const item in cartItem[items]) {
-        try {
-          if (cartItem[items][item] > 0) {
-            totalCount += cartItem[items][item];
+      if (cartItem[items]) {
+        for (const item in cartItem[items]) {
+          try {
+            if (cartItem[items][item] > 0) {
+              totalCount += cartItem[items][item];
+            }
+          } catch (error) {
+            console.log("Error counting item:", items, error);
           }
-        } catch (error) {}
+        }
       }
     }
     return totalCount;
@@ -150,26 +174,56 @@ function ShopContext({ children }) {
 
   const getCartAmount = () => {
     let totalAmount = 0;
+    if (
+      !cartItem ||
+      Object.keys(cartItem).length === 0 ||
+      !products ||
+      products.length === 0
+    ) {
+      return 0;
+    }
+
     for (const items in cartItem) {
       let itemInfo = products.find((product) => product._id === items);
-      for (const item in cartItem[items]) {
-        try {
-          if (cartItem[items][item] > 0) {
-            totalAmount += itemInfo.price * cartItem[items][item];
+      if (itemInfo && itemInfo.price) {
+        for (const item in cartItem[items]) {
+          try {
+            if (cartItem[items][item] > 0) {
+              totalAmount += itemInfo.price * cartItem[items][item];
+            }
+          } catch (error) {
+            console.log("Error calculating amount for item:", items, error);
           }
-        } catch (error) {}
+        }
+      } else {
+        console.log("Product info not found for:", items);
       }
     }
     return totalAmount;
   };
 
+  // Load products on initial mount
   useEffect(() => {
     getProducts();
   }, []);
 
+  // Load cart when user data changes or products are loaded
   useEffect(() => {
-    getUserCart();
-  }, []);
+    if (userData && userData._id) {
+      console.log("User logged in, fetching cart");
+      getUserCart();
+    } else {
+      console.log("No user logged in, resetting cart");
+      setCartItem({});
+    }
+  }, [userData]);
+
+  // Add getUserCart to value object
+  useEffect(() => {
+    if (products.length > 0 && userData) {
+      getUserCart();
+    }
+  }, [products]);
 
   let value = {
     products,
@@ -187,6 +241,7 @@ function ShopContext({ children }) {
     updateQuantity,
     getCartAmount,
     loading,
+    getUserCart,
   };
   return (
     <div>

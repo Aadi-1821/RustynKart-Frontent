@@ -3,7 +3,7 @@ import Title from "../component/Title";
 import CartTotal from "../component/CartTotal";
 import razorpay from "../assets/Razorpay.jpg";
 import { shopDataContext } from "../context/ShopContext";
-import { authDataContext } from "../context/AuthContext";
+import { authDataContext } from "../auth/AuthProvider";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -14,7 +14,7 @@ function PlaceOrder() {
   let navigate = useNavigate();
   const { cartItem, setCartItem, getCartAmount, delivery_fee, products } =
     useContext(shopDataContext);
-  let { serverUrl } = useContext(authDataContext);
+  let { getToken } = useContext(authDataContext);
   let [loading, setLoading] = useState(false);
 
   let [formData, setFormData] = useState({
@@ -36,6 +36,11 @@ function PlaceOrder() {
   };
 
   const initPay = (order) => {
+    if (!order || !order.id) {
+      toast.error("Invalid payment order");
+      setLoading(false);
+      return;
+    }
     const options = {
       key: import.meta.env.VITE_RAZORPAY_KEY_ID,
       amount: order.amount,
@@ -45,16 +50,34 @@ function PlaceOrder() {
       order_id: order.id,
       receipt: order.receipt,
       handler: async (response) => {
-        console.log(response);
-        const { data } = await axios.post(
-          serverUrl + "/api/order/verifyrazorpay",
-          response,
-          { withCredentials: true },
-        );
-        if (data) {
-          navigate("/order");
-          setCartItem({});
+        console.log("Payment response:", response);
+        try {
+          const { data } = await axios.post(
+            "/api/order/verifyrazorpay",
+            response,
+            {
+              headers: {
+                Authorization: `Bearer ${getToken()}`,
+              },
+            },
+          );
+          if (data) {
+            navigate("/order");
+            setCartItem({});
+            toast.success("Payment successful!");
+          } else {
+            toast.error("Payment verification failed");
+          }
+        } catch (error) {
+          console.log("Payment verification error:", error);
+          toast.error("Payment verification failed");
         }
+      },
+      modal: {
+        ondismiss: function () {
+          toast.info("Payment cancelled");
+          setLoading(false);
+        },
       },
     };
     const rzp = new window.Razorpay(options);
@@ -80,51 +103,92 @@ function PlaceOrder() {
           }
         }
       }
+      // Check if we have items to order
+      if (orderItems.length === 0) {
+        toast.error("Your cart is empty");
+        setLoading(false);
+        return;
+      }
+
+      // Check if all required form fields are filled
+      if (
+        !formData.firstName ||
+        !formData.lastName ||
+        !formData.email ||
+        !formData.street ||
+        !formData.city ||
+        !formData.state ||
+        !formData.pinCode ||
+        !formData.country ||
+        !formData.phone
+      ) {
+        toast.error("Please fill all delivery information fields");
+        setLoading(false);
+        return;
+      }
+
       let orderData = {
         address: formData,
         items: orderItems,
         amount: getCartAmount() + delivery_fee,
       };
       switch (method) {
-        case "cod":
-          const result = await axios.post(
-            serverUrl + "/api/order/placeorder",
-            orderData,
-            { withCredentials: true },
-          );
+        case "cod": {
+          const result = await axios.post("/api/order/placeorder", orderData, {
+            headers: {
+              Authorization: `Bearer ${getToken()}`,
+            },
+          });
           console.log(result.data);
           if (result.data) {
             setCartItem({});
-            toast.success("Order Placed");
+            toast.success("Order Placed Successfully");
             navigate("/order");
-            setLoading(false);
           } else {
-            console.log(result.data.message);
-            toast.error("Order Placed Error");
-            setLoading(false);
+            console.log(result.data?.message);
+            toast.error("Failed to place order");
           }
-
+          setLoading(false);
           break;
+        }
 
-        case "razorpay":
+        case "razorpay": {
           const resultRazorpay = await axios.post(
-            serverUrl + "/api/order/razorpay",
+            "/api/order/razorpay",
             orderData,
-            { withCredentials: true },
+            {
+              headers: {
+                Authorization: `Bearer ${getToken()}`,
+              },
+            },
           );
           if (resultRazorpay.data) {
             initPay(resultRazorpay.data);
-            toast.success("Order Placed");
+            toast.success("Preparing Payment");
+            setLoading(false);
+          } else {
+            toast.error("Failed to initialize payment");
             setLoading(false);
           }
-
           break;
+        }
 
-        default:
+        default: {
+          setLoading(false);
+          toast.error("Please select a payment method");
           break;
+        }
       }
     } catch (error) {
-      console.log(error);
+      console.log("Order error:", error);
+      setLoading(false);
+
+      if (error.response?.status === 401) {
+        toast.error("Authentication failed. Please login again.");
+        navigate("/login");
+      } else {
+        toast.error(error.response?.data?.message || "Error placing order");
+      }
     }
   };
   return (
@@ -137,6 +201,11 @@ function PlaceOrder() {
         >
           <div className="py-[10px]">
             <Title text1={"DELIVERY"} text2={"INFORMATION"} />
+            {loading && (
+              <p className="text-center text-white mt-2">
+                Processing your order...
+              </p>
+            )}
           </div>
           <div className="w-[100%] h-[70px] flex items-center justify-between px-[10px]">
             <input
@@ -236,7 +305,8 @@ function PlaceOrder() {
           <div>
             <button
               type="submit"
-              className="text-[18px] active:bg-slate-500 cursor-pointer bg-[#3bcee848] py-[10px] px-[50px] rounded-2xl text-white flex items-center justify-center gap-[20px] absolute lg:right-[20%] bottom-[10%] right-[35%] border-[1px] border-[#80808049] ml-[30px] mt-[20px]"
+              disabled={loading}
+              className="text-[18px] active:bg-slate-500 cursor-pointer bg-[#3bcee848] py-[10px] px-[50px] rounded-2xl text-white flex items-center justify-center gap-[20px] absolute lg:right-[20%] bottom-[10%] right-[35%] border-[1px] border-[#80808049] ml-[30px] mt-[20px] disabled:opacity-70"
             >
               {loading ? <Loading /> : "PLACE ORDER"}
             </button>
@@ -251,19 +321,21 @@ function PlaceOrder() {
           </div>
           <div className="w-[100%] h-[30vh] lg:h-[100px] flex items-start mt-[20px] lg:mt-[0px] justify-center gap-[50px]">
             <button
-              onClick={() => setMethod("razorpay")}
-              className={`w-[150px] h-[50px] rounded-sm  ${method === "razorpay" ? "border-[5px] border-blue-900 rounded-sm" : ""}`}
+              onClick={() => !loading && setMethod("razorpay")}
+              disabled={loading}
+              className={`w-[150px] h-[50px] rounded-sm ${loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${method === "razorpay" ? "border-[5px] border-blue-900 rounded-sm" : ""}`}
             >
               {" "}
               <img
                 src={razorpay}
                 className="w-[100%] h-[100%] object-fill rounded-sm "
-                alt=""
+                alt="Razorpay"
               />
             </button>
             <button
-              onClick={() => setMethod("cod")}
-              className={`w-[200px] h-[50px] bg-gradient-to-t from-[#95b3f8] to-[white] text-[14px] px-[20px] rounded-sm text-[#332f6f] font-bold ${method === "cod" ? "border-[5px] border-blue-900 rounded-sm" : ""}`}
+              onClick={() => !loading && setMethod("cod")}
+              disabled={loading}
+              className={`w-[200px] h-[50px] bg-gradient-to-t from-[#95b3f8] to-[white] text-[14px] px-[20px] rounded-sm text-[#332f6f] font-bold ${loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${method === "cod" ? "border-[5px] border-blue-900 rounded-sm" : ""}`}
             >
               CASH ON DELIVERY{" "}
             </button>

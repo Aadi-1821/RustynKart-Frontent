@@ -1,34 +1,34 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { authDataContext } from "./AuthContext";
+import { authDataContext } from "../auth/AuthProvider";
 import axios from "axios";
 
 export const userDataContext = createContext();
 function UserContext({ children }) {
   let [userData, setUserData] = useState("");
-  let { serverUrl, clearToken, getToken } = useContext(authDataContext);
+  let { clearToken, getToken } = useContext(authDataContext);
 
   const getCurrentUser = async () => {
     try {
       // Get token from localStorage
       const token = getToken();
 
-      const config = {
-        withCredentials: true,
-        headers: {},
-      };
-
-      // Add Authorization header if token exists
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-        console.log(
-          "Using token for authentication:",
-          token.substring(0, 15) + "...",
-        );
-      } else {
-        console.log("No auth token available");
+      if (!token) {
+        console.log("No auth token available - cannot get current user");
+        setUserData(null);
+        return;
       }
 
-      let result = await axios.get("/api/user/getcurrentuser", config);
+      console.log(
+        "Using token for authentication:",
+        token.substring(0, 15) + "...",
+      );
+
+      // Make API request with token in Authorization header
+      let result = await axios.get("/api/user/getcurrentuser", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       setUserData(result.data);
       console.log("Current user data:", result.data);

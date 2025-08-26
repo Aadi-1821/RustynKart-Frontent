@@ -94,26 +94,6 @@ function AuthContext({ children }) {
     }
   };
 
-  // Test authentication function
-  const testAuth = async () => {
-    try {
-      const token = getToken();
-
-      // Test if the token is valid
-      const config = {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      };
-
-      const authCheck = await axios.get("/api/test-auth", config);
-      console.log("Auth check response:", authCheck.data);
-
-      return authCheck.data;
-    } catch (error) {
-      console.error("Auth test failed:", error);
-      return { error: error.message };
-    }
-  };
-
   // Handle token storage
   const saveToken = (token) => {
     if (token) {
@@ -140,7 +120,6 @@ function AuthContext({ children }) {
   let value = {
     serverUrl,
     testCookie,
-    testAuth,
     saveToken,
     clearToken,
     getToken,

@@ -4,32 +4,41 @@ import { IoSearchCircleOutline } from "react-icons/io5";
 import { FaCircleUser } from "react-icons/fa6";
 import { MdOutlineShoppingCart } from "react-icons/md";
 import { userDataContext } from "../context/UserContext";
+import { shopDataContext } from "../context/ShopContext";
 import { IoSearchCircleSharp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { IoMdHome } from "react-icons/io";
 import { HiOutlineCollection } from "react-icons/hi";
 import { MdContacts } from "react-icons/md";
 import axios from "axios";
-import { authDataContext } from "../context/AuthContext";
-import { shopDataContext } from "../context/ShopContext";
+import { authDataContext } from "../auth/AuthProvider";
+import { toast } from "react-toastify";
 function Nav() {
   let { getCurrentUser, userData } = useContext(userDataContext);
-  let { serverUrl } = useContext(authDataContext);
+  let { clearToken, getToken } = useContext(authDataContext);
   let { showSearch, setShowSearch, search, setSearch, getCartCount } =
     useContext(shopDataContext);
   let [showProfile, setShowProfile] = useState(false);
+  let [isLoggingOut, setIsLoggingOut] = useState(false);
   let navigate = useNavigate();
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
-      const result = await axios.get(serverUrl + "/api/auth/logout", {
-        withCredentials: true,
+      const result = await axios.get("/api/auth/logout", {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
       });
       console.log(result.data);
+      clearToken();
       getCurrentUser();
       navigate("/login");
+      toast.success("Logged out successfully");
     } catch (error) {
       console.log(error);
+      toast.error("Logout failed");
+      setIsLoggingOut(false);
     }
   };
   return (
@@ -101,7 +110,7 @@ function Nav() {
           onClick={() => navigate("/cart")}
         />
         <p className="absolute w-[18px] h-[18px] items-center  justify-center bg-black px-[5px] py-[2px] text-white  rounded-full text-[9px] top-[10px] right-[23px] hidden md:block">
-          {getCartCount()}
+          {getCartCount() || 0}
         </p>
       </div>
       {showSearch && (
@@ -136,11 +145,13 @@ function Nav() {
               <li
                 className="w-[100%] hover:bg-[#2f2f2f]  px-[15px] py-[10px] cursor-pointer"
                 onClick={() => {
-                  handleLogout();
-                  setShowProfile(false);
+                  if (!isLoggingOut) {
+                    handleLogout();
+                    setShowProfile(false);
+                  }
                 }}
               >
-                LogOut
+                {isLoggingOut ? "Logging out..." : "LogOut"}
               </li>
             )}
             <li
@@ -196,7 +207,7 @@ function Nav() {
           Cart
         </button>
         <p className="absolute w-[18px] h-[18px] flex items-center justify-center bg-white px-[5px] py-[2px] text-black font-semibold  rounded-full text-[9px] top-[8px] right-[18px]">
-          {getCartCount()}
+          {getCartCount() || 0}
         </p>
       </div>
     </div>

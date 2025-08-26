@@ -1,20 +1,24 @@
 import React, { useContext, useEffect, useState } from "react";
 import Title from "../component/Title";
 import { shopDataContext } from "../context/ShopContext";
-import { authDataContext } from "../context/AuthContext";
+import { authDataContext } from "../auth/AuthProvider";
 import axios from "axios";
 
 function Order() {
   let [orderData, setOrderData] = useState([]);
   let { currency } = useContext(shopDataContext);
-  let { serverUrl } = useContext(authDataContext);
+  let { getToken } = useContext(authDataContext);
 
   const loadOrderData = async () => {
     try {
       const result = await axios.post(
-        serverUrl + "/api/order/userorder",
+        "/api/order/userorder",
         {},
-        { withCredentials: true },
+        {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        },
       );
       if (result.data) {
         let allOrdersItem = [];

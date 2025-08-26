@@ -3,18 +3,18 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 import { BrowserRouter } from "react-router-dom";
-import AuthContext from "./context/AuthContext.jsx";
+import AuthProvider from "./auth/AuthProvider.jsx";
 import UserContext from "./context/UserContext.jsx";
 import ShopContext from "./context/ShopContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <BrowserRouter>
-    <AuthContext>
+    <AuthProvider>
       <UserContext>
         <ShopContext>
           <App />
         </ShopContext>
       </UserContext>
-    </AuthContext>
+    </AuthProvider>
   </BrowserRouter>,
 );

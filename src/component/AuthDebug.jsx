@@ -1,11 +1,10 @@
 import React, { useContext, useEffect, useState } from "react";
-import { authDataContext } from "../context/AuthContext";
+import { authDataContext } from "../auth/AuthProvider";
 import axios from "axios";
 import { toast } from "react-toastify";
 
 function AuthDebug() {
-  const { serverUrl, getToken, saveToken, clearToken } =
-    useContext(authDataContext);
+  const { getToken, saveToken, clearToken } = useContext(authDataContext);
   const [tokenValue, setTokenValue] = useState("");
   const [cookieValue, setCookieValue] = useState("");
   const [customToken, setCustomToken] = useState("");
@@ -42,7 +41,6 @@ function AuthDebug() {
     try {
       // Test with token in authorization header
       const config = {
-        withCredentials: true,
         headers: {
           Authorization: `Bearer ${getToken() || ""}`,
         },

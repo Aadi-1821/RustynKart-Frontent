@@ -6,7 +6,7 @@ import { IoEyeOutline } from "react-icons/io5";
 import { IoEye } from "react-icons/io5";
 import { useState } from "react";
 import { useContext } from "react";
-import { authDataContext } from "../context/AuthContext";
+import { authDataContext } from "../auth/AuthProvider";
 import axios from "axios";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../../utils/Firebase";
@@ -18,7 +18,7 @@ function Login() {
   let [show, setShow] = useState(false);
   let [email, setEmail] = useState("");
   let [password, setPassword] = useState("");
-  let { serverUrl, saveToken } = useContext(authDataContext);
+  let { saveToken } = useContext(authDataContext);
   let { getCurrentUser } = useContext(userDataContext);
   let [loading, setLoading] = useState(false);
 
@@ -28,14 +28,10 @@ function Login() {
     setLoading(true);
     e.preventDefault();
     try {
-      let result = await axios.post(
-        "/api/auth/login",
-        {
-          email,
-          password,
-        },
-        { withCredentials: true },
-      );
+      let result = await axios.post("/api/auth/login", {
+        email,
+        password,
+      });
       console.log(result.data);
       setLoading(false);
 
@@ -59,31 +55,24 @@ function Login() {
       let name = user.displayName;
       let email = user.email;
 
-      const result = await axios.post(
-        "/api/auth/googlelogin",
-        { name, email },
-        { withCredentials: true },
-      );
+      const result = await axios.post("/api/auth/googlelogin", { name, email });
       console.log("Google login response:", result.data);
       console.log("Google login headers:", result.headers);
 
-      // Check for token in response body
+      // Extract token from response body - this is the most reliable method
       if (result.data && result.data.token) {
         console.log("Token found in response body");
         saveToken(result.data.token);
-      }
-      // If not in response body, try to extract from cookies (manual approach)
-      else {
-        console.log("No token in response body, checking cookies manually");
-        const cookies = document.cookie.split(";");
-        for (let i = 0; i < cookies.length; i++) {
-          const cookie = cookies[i].trim();
-          if (cookie.startsWith("token=")) {
-            const token = cookie.substring("token=".length, cookie.length);
-            console.log("Token found in cookies:", token);
-            saveToken(token);
-            break;
-          }
+      } else {
+        // If no token in response body, check for token in response headers
+        const authHeader =
+          result.headers["authorization"] || result.headers["Authorization"];
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          const token = authHeader.substring(7);
+          console.log("Token found in response header");
+          saveToken(token);
+        } else {
+          console.warn("No token found in response. Authentication may fail.");
         }
       }
 
